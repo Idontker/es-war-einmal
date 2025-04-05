@@ -14,7 +14,9 @@ export function TextGenerationScreen({
   knowledgeBase,
   initialText,
 }: TextGenerationScreenProps) {
-  const [generatedText, setGeneratedText] = useState(initialText);
+  const [generatedText, setGeneratedText] = useState<string[]>(
+    tokenize(initialText)
+  );
   const [isGenerating, setIsGenerating] = useState(true);
   const [probTables, setProbTables] = useState<{
     unigram: ProbTable;
@@ -42,22 +44,32 @@ export function TextGenerationScreen({
   }, [knowledgeBase]);
 
   const handleUndo = () => {
-    const words = tokenize(generatedText);
-    if (words.length > 1) {
-      setGeneratedText(words.slice(0, -1).join(" "));
+    if (generatedText.length > 1) {
+      setGeneratedText(generatedText.slice(0, -1));
     }
   };
 
   const onReset = () => {
-    setGeneratedText(initialText);
+    setGeneratedText(tokenize(initialText));
+  };
+
+  const lastNgram = () => {
+    const tokens = generatedText;
+    return ngram(tokens, n, tokens.length - n);
+  };
+
+  const lastNgramIsKnown = () => {
+    const probTable = n == 1 ? probTables.unigram : probTables.bigram; // Use the appropriate probability table based on n
+    const lastToken = lastNgram();
+
+    return Object.keys(probTable).includes(lastToken);
   };
 
   const nextWords = () => {
-    const tokens = tokenize(generatedText);
+    const tokens = generatedText;
 
     let lastToken = ngram(tokens, n, tokens.length - n);
     let probTable = n == 1 ? probTables.unigram : probTables.bigram; // Use the appropriate probability table based on n
-    console.log(lastToken, probTable[lastToken]);
 
     const lastTokenExists = Object.keys(probTable).includes(lastToken);
 
@@ -76,6 +88,15 @@ export function TextGenerationScreen({
     return ret.sort((a, b) => b.probability - a.probability).slice(0, 10); // Top 1  predictions
   };
 
+  const parseTokens = (tokens: string[], start: number, end: number) => {
+    return tokens.slice(start, end).reduce((acc, token) => {
+      if ([".", ",", "!", "?", ":", ";"].includes(token)) {
+        return acc + token;
+      }
+      return acc === "" ? token : acc + " " + token;
+    }, "");
+  };
+
   return (
     <div className="space-y-8">
       <div className="space-y-2">
@@ -91,7 +112,16 @@ export function TextGenerationScreen({
           </div>
         </div>
         <div className="p-4 bg-gray-50 rounded-lg border min-h-[100px]">
-          <p className="whitespace-pre-wrap">{generatedText}</p>
+          <p className="whitespace-pre-wrap">
+            {parseTokens(generatedText, 0, generatedText.length - n)}
+            <span className="font-bold mx-2 p-2 bg-amber-200  text-primary">
+              {parseTokens(
+                generatedText,
+                generatedText.length - n,
+                generatedText.length
+              )}
+            </span>
+          </p>
         </div>
       </div>
 
@@ -125,6 +155,12 @@ export function TextGenerationScreen({
       </div>
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Wähle das nächste Wort</h3>
+        {!lastNgramIsKnown() && (
+          <div className="text-sm text-gray-500">
+            <i>{lastNgram()}</i> wurde nicht im Trainingsdatensatz gefunden.
+            Daher wird der Kontext auf die Länge 1 reduziert.
+          </div>
+        )}
 
         {isGenerating ? (
           <div className="flex justify-center py-4">
@@ -144,12 +180,8 @@ export function TextGenerationScreen({
                   size="lg"
                   className="text-lg px-6 py-2 h-auto"
                   onClick={() => {
-                    let out = generatedText;
-                    if ([".", ",", "!", "?"].includes(value.word)) {
-                      out += value.word;
-                    } else {
-                      out += " " + value.word;
-                    }
+                    const out = generatedText.concat([value.word]);
+
                     setGeneratedText(out);
                   }}
                 >

@@ -25,14 +25,8 @@ function generateProbTable(text: string, n: number = 1) {
   const words = tokenize(text);
   // .map((word) => word.toLowerCase()); // removed for case sensitive mapping
 
-  console.log(words);
-
   for (let i = 0; i < words.length - n; i++) {
     const word = ngram(words, n, i); // Get the n-gram for the current position
-
-    if (i < 2) {
-      console.log(word);
-    }
 
     // Initialize record for the current word if not present
     if (!table[word]) {
@@ -50,7 +44,6 @@ function generateProbTable(text: string, n: number = 1) {
       table[word].following[nextWord]++;
     }
   }
-  console.log(table);
 
   return table;
 }
