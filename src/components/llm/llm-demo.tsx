@@ -59,7 +59,6 @@ export function LLMDemo() {
           <TextGenerationScreen
             knowledgeBase={inputText}
             initialText={generatedText}
-            onReset={handleReset}
           />
         )}
       </div>

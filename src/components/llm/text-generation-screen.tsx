@@ -2,23 +2,29 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { generateProbTable, ProbTable } from "@/lib/llm-simulator";
+import { getProbTables, ProbTable, tokenize, ngram } from "@/lib/llm-simulator";
 import { Separator } from "../ui/separator";
 
 interface TextGenerationScreenProps {
   knowledgeBase: string;
   initialText: string;
-  onReset: () => void;
 }
 
 export function TextGenerationScreen({
   knowledgeBase,
   initialText,
-  onReset,
 }: TextGenerationScreenProps) {
   const [generatedText, setGeneratedText] = useState(initialText);
   const [isGenerating, setIsGenerating] = useState(true);
-  const [probTable, setProbTable] = useState<ProbTable>({});
+  const [probTables, setProbTables] = useState<{
+    unigram: ProbTable;
+    bigram: ProbTable;
+  }>({
+    unigram: {},
+    bigram: {},
+  });
+
+  const [n, setN] = useState<number>(1);
 
   useEffect(() => {
     const generatePredictions = async () => {
@@ -26,8 +32,8 @@ export function TextGenerationScreen({
 
       // Simuliere eine Verzögerung für die Vorhersagegenerierung
       setTimeout(() => {
-        const probs = generateProbTable(knowledgeBase);
-        setProbTable(probs);
+        const probsTables = getProbTables(knowledgeBase);
+        setProbTables(probsTables);
         setIsGenerating(false);
       }, 500);
     };
@@ -36,25 +42,38 @@ export function TextGenerationScreen({
   }, [knowledgeBase]);
 
   const handleUndo = () => {
-    const words = generatedText.split(" ");
+    const words = tokenize(generatedText);
     if (words.length > 1) {
       setGeneratedText(words.slice(0, -1).join(" "));
     }
   };
 
-  const nextWords = (lastWord: string) => {
-    console.log(probTable);
-    console.log(lastWord);
-    const n = probTable[lastWord].total;
-    const ret = Object.entries(probTable[lastWord].following).map(
+  const onReset = () => {
+    setGeneratedText(initialText);
+  };
+
+  const nextWords = () => {
+    const tokens = tokenize(generatedText);
+
+    let lastToken = ngram(tokens, n, tokens.length - n);
+    let probTable = n == 1 ? probTables.unigram : probTables.bigram; // Use the appropriate probability table based on n
+    console.log(lastToken, probTable[lastToken]);
+
+    const lastTokenExists = Object.keys(probTable).includes(lastToken);
+
+    if (!lastTokenExists) {
+      probTable = probTables.unigram; // Fallback to unigram if bigram doesn't exist
+      lastToken = ngram(tokens, 1, tokens.length - 1);
+    }
+
+    const total = probTable[lastToken].total;
+    const ret = Object.entries(probTable[lastToken].following).map(
       ([word, count]) => ({
         word,
-        probability: (count / n) * 100,
+        probability: (count / total) * 100,
       })
     );
-    ret.sort((a, b) => b.probability - a.probability);
-    console.log(ret);
-    return ret;
+    return ret.sort((a, b) => b.probability - a.probability).slice(0, 10); // Top 1  predictions
   };
 
   return (
@@ -77,6 +96,34 @@ export function TextGenerationScreen({
       </div>
 
       <div className="space-y-4">
+        <h3 className="text-lg font-medium">
+          Wähle die Länge des Kontext aus:
+        </h3>
+        <div className="space-x-2">
+          <Button
+            variant={n == 1 ? "default" : "outline"}
+            size="sm"
+            onClick={() => setN(1)}
+          >
+            1
+          </Button>{" "}
+          <Button
+            variant={n == 2 ? "default" : "outline"}
+            size="sm"
+            onClick={() => setN(2)}
+          >
+            2
+          </Button>{" "}
+          {/* <Button
+            variant={n == 3 ? "default" : "outline"}
+            size="sm"
+            onClick={() => setN(3)}
+          >
+            3
+          </Button> */}
+        </div>
+      </div>
+      <div className="space-y-4">
         <h3 className="text-lg font-medium">Wähle das nächste Wort</h3>
 
         {isGenerating ? (
@@ -89,7 +136,7 @@ export function TextGenerationScreen({
           </div>
         ) : (
           <div className="flex flex-wrap gap-3">
-            {nextWords(generatedText.split(" ").slice(-1)[0]).map((value) => {
+            {nextWords().map((value) => {
               return (
                 <Button
                   key={value.word}

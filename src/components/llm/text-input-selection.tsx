@@ -6,15 +6,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "../utils/file-uploader";
+import { grimm } from "@/lib/texts/grimm";
 
 const PREBUILT_EXAMPLES = [
   {
     id: "story",
-    title: "Kurze Geschichte",
-    preview:
-      "Es war einmal in einem kleinen Dorf, eingebettet zwischen Bergen, wo ein neugieriges Kind lebte, das es liebte, zu erkunden...",
-    fullText:
-      "Es war einmal in einem kleinen Dorf, eingebettet zwischen Bergen, wo ein neugieriges Kind lebte, das es liebte, die alten Wälder rund um sein Zuhause zu erkunden. Jeden Morgen packte es einen kleinen Beutel mit Brot und Käse und zog in den Wald, um nach Abenteuern zu suchen.",
+    title: "Brüder Grimm Märchen",
+    preview: grimm().substring(0, 100) + "...",
+    fullText: grimm(),
   },
   {
     id: "news",
